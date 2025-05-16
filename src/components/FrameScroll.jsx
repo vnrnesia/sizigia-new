@@ -4,9 +4,9 @@ import styles from "./FrameScroll.module.css";
 import { motion, AnimatePresence } from "framer-motion";
 import PageLoader from "./PageLoader";
 
-const CHUNK_SIZE = 10;
-const PRELOAD_AHEAD = 20;
-const INITIAL_FRAMES_TO_LOAD = 106;
+const CHUNK_SIZE = 20; 
+const PRELOAD_AHEAD = 30; 
+const INITIAL_FRAMES_TO_LOAD = 30;
 
 const FrameScroll = () => {
   const navigate = useNavigate();
@@ -47,6 +47,7 @@ const FrameScroll = () => {
     "сизигиа",
   ];
 
+
   const loadFrameChunk = async (startFrame, endFrame) => {
     const chunkKey = `${startFrame}-${endFrame}`;
     if (loadingChunksRef.current.has(chunkKey)) return;
@@ -67,7 +68,7 @@ const FrameScroll = () => {
             frameImagesRef.current[i] = img;
             setLoadedFrames((prev) => {
               const newCount = prev + 1;
-              if (newCount === INITIAL_FRAMES_TO_LOAD) {
+              if (newCount >= INITIAL_FRAMES_TO_LOAD) {
                 setIsLoading(false);
               }
               return newCount;
@@ -79,7 +80,7 @@ const FrameScroll = () => {
 
         loadPromises.push(loadPromise);
       }
-    } //test 
+    }
 
     try {
       await Promise.all(loadPromises);
@@ -88,6 +89,7 @@ const FrameScroll = () => {
     }
   };
 
+ 
   const drawFrame = (frameNumber) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -96,8 +98,7 @@ const FrameScroll = () => {
     const img = frameImagesRef.current[frameNumber];
 
     if (img) {
-      canvas.width = 1920;
-      canvas.height = 1080;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     }
   };
@@ -111,63 +112,82 @@ const FrameScroll = () => {
       }
     };
 
+
+    handleResize();
+
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [currentFrame]);
 
+  
   useEffect(() => {
+    let ticking = false;
+
     const handleScroll = () => {
-      const scrollPosition = window.scrollY;
-      const windowHeight = window.innerHeight;
-      const documentHeight = document.documentElement.scrollHeight;
-      const scrollPercentage = scrollPosition / (documentHeight - windowHeight);
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const scrollPosition = window.scrollY;
+          const windowHeight = window.innerHeight;
+          const documentHeight = document.documentElement.scrollHeight;
+          const scrollPercentage = scrollPosition / (documentHeight - windowHeight);
 
-      setScrollProgress(scrollPercentage);
+          setScrollProgress(scrollPercentage);
 
-      const textIndex = Math.min(
-        Math.floor(scrollPercentage * texts.length * 1.5),
-        texts.length - 1
-      );
+ 
+          const textIndex = Math.min(
+            Math.floor(scrollPercentage * texts.length * 1.5),
+            texts.length - 1
+          );
 
-      if (currentText !== texts[textIndex] && !isTextTransitioning) {
-        setIsTextTransitioning(true);
-        setFadeOutText(currentText);
 
-        setCurrentText(texts[textIndex]);
+          if (currentText !== texts[textIndex] && !isTextTransitioning) {
+            setIsTextTransitioning(true);
+            setFadeOutText(currentText);
 
-        setTimeout(() => {
-          setFadeOutText("");
-          setIsTextTransitioning(false);
-        }, 300);
-      }
+            setCurrentText(texts[textIndex]);
 
-      const frameNumber = Math.min(
-        Math.max(1, Math.floor(scrollPercentage * totalFrames) + 1),
-        totalFrames
-      );
+            setTimeout(() => {
+              setFadeOutText("");
+              setIsTextTransitioning(false);
+            }, 300);
+          }
 
-      setCurrentFrame(frameNumber);
 
-      const nextChunkStart = Math.min(frameNumber + 1, totalFrames);
-      const nextChunkEnd = Math.min(frameNumber + PRELOAD_AHEAD, totalFrames);
-      loadFrameChunk(nextChunkStart, nextChunkEnd);
+          const frameNumber = Math.min(
+            Math.max(1, Math.floor(scrollPercentage * totalFrames) + 1),
+            totalFrames
+          );
 
-      if (frameNumber === totalFrames && !showVideo && !isTransitioning) {
-        setIsTransitioning(true);
-        setTimeout(() => {
-          setShowVideo(true);
-          setTimeout(() => {
-            setIsTransitioning(false);
-          }, 500);
-        }, 500);
-      } else if (frameNumber < totalFrames && showVideo && !isTransitioning) {
-        setIsTransitioning(true);
-        setTimeout(() => {
-          setShowVideo(false);
-          setTimeout(() => {
-            setIsTransitioning(false);
-          }, 500);
-        }, 500);
+          setCurrentFrame(frameNumber);
+
+
+          const nextChunkStart = Math.min(frameNumber + 1, totalFrames);
+          const nextChunkEnd = Math.min(frameNumber + PRELOAD_AHEAD, totalFrames);
+          loadFrameChunk(nextChunkStart, nextChunkEnd);
+
+
+          if (frameNumber === totalFrames && !showVideo && !isTransitioning) {
+            setIsTransitioning(true);
+            setTimeout(() => {
+              setShowVideo(true);
+              setTimeout(() => {
+                setIsTransitioning(false);
+              }, 500);
+            }, 500);
+          } else if (frameNumber < totalFrames && showVideo && !isTransitioning) {
+            setIsTransitioning(true);
+            setTimeout(() => {
+              setShowVideo(false);
+              setTimeout(() => {
+                setIsTransitioning(false);
+              }, 500);
+            }, 500);
+          }
+
+          ticking = false;
+        });
+
+        ticking = true;
       }
     };
 
@@ -175,10 +195,12 @@ const FrameScroll = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [currentText, showVideo, isTransitioning, isTextTransitioning]);
 
+
   useEffect(() => {
     const initialChunkEnd = Math.min(CHUNK_SIZE, totalFrames);
     loadFrameChunk(1, initialChunkEnd);
   }, []);
+
 
   useEffect(() => {
     drawFrame(currentFrame);
@@ -213,6 +235,7 @@ const FrameScroll = () => {
             loop
             muted
             playsInline
+            preload="none" 
           >
             <source src="/video.mp4" type="video/mp4" />
           </video>
