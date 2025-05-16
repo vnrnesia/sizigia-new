@@ -4,9 +4,9 @@ import styles from "./FrameScroll.module.css";
 import { motion, AnimatePresence } from "framer-motion";
 import PageLoader from "./PageLoader";
 
-const CHUNK_SIZE = 20; 
-const PRELOAD_AHEAD = 30; 
-const INITIAL_FRAMES_TO_LOAD = 30;
+const CHUNK_SIZE = 106; 
+const PRELOAD_AHEAD = 106; 
+const INITIAL_FRAMES_TO_LOAD = 106;
 
 const FrameScroll = () => {
   const navigate = useNavigate();
