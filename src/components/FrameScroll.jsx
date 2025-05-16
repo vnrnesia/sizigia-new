@@ -79,7 +79,7 @@ const FrameScroll = () => {
 
         loadPromises.push(loadPromise);
       }
-    }
+    } //test 
 
     try {
       await Promise.all(loadPromises);
