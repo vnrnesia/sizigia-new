@@ -1,0 +1,201 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap');
+
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 1.5rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 100;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 100%);
+  transition: background 0.3s ease;
+  will-change: background;
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes fadeToBlack {
+  0% {
+    color: white;
+    opacity: 0.99; /* Hack to force GPU acceleration */
+  }
+  100% {
+    color: black;
+    opacity: 1;
+  }
+}
+
+.header .logo, .header .navLink {
+  color: white;
+  transition: color 0.5s ease;
+  will-change: transform, color;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+.header.blackText .logo, .header.blackText .navLink {
+  animation: fadeToBlack 0.5s ease forwards;
+}
+
+.logo {
+  font-family: 'Inter', sans-serif;
+  font-weight: 300;
+  font-size: 1.5rem;
+  color: white;
+  letter-spacing: 1px;
+  z-index: 102;
+}
+
+.logo a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.nav {
+  display: flex;
+  gap: 2rem;
+  transform: translateZ(0);
+}
+
+.navLink {
+  font-family: 'Inter', sans-serif;
+  font-weight: 300;
+  font-size: 1rem;
+  color: white;
+  text-decoration: none;
+  letter-spacing: 0.5px;
+  position: relative;
+  transition: color 0.3s ease;
+}
+
+.navLink::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background-color: white;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: width;
+}
+
+.navLink:hover {
+  color: rgba(255,255,255,0.8);
+}
+
+.navLink:hover::after {
+  width: 100%;
+} 
+
+.blackText {
+  color: black;
+}
+
+/* Hamburger Menu Styles */
+.hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: space-around;
+  width: 2rem;
+  height: 2rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  z-index: 102;
+}
+
+.hamburger span {
+  width: 2rem;
+  height: 0.25rem;
+  background: white;
+  border-radius: 10px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  transform-origin: 1px;
+  will-change: transform, opacity;
+}
+
+.hamburger.active span:first-child {
+  transform: rotate(45deg);
+}
+
+.hamburger.active span:nth-child(2) {
+  opacity: 0;
+}
+
+.hamburger.active span:nth-child(3) {
+  transform: rotate(-45deg);
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+  .hamburger {
+    display: flex;
+  }
+
+  .nav {
+    position: fixed;
+    top: 0;
+    right: -100%;
+    width: 100%;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.95);
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 2rem;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateX(100%);
+    will-change: transform;
+    z-index: 101;
+  }
+
+  .nav.mobileMenuOpen {
+    transform: translateX(0);
+  }
+
+  .navLink {
+    font-size: 1.5rem;
+  }
+
+  /* Override black text in mobile menu */
+  .nav.mobileMenuOpen .navLink,
+  .header.blackText .nav.mobileMenuOpen .navLink {
+    color: white !important;
+    animation: none;
+  }
+
+  /* Update the underline color for mobile menu links */
+  .nav.mobileMenuOpen .navLink::after,
+  .header.blackText .nav.mobileMenuOpen .navLink::after {
+    background-color: white;
+  }
+}
+
+/* Tablet Styles */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .header {
+    padding: 1rem 1.5rem;
+  }
+
+  .nav {
+    gap: 1.5rem;
+  }
+
+  .logo {
+    font-size: 1.3rem;
+  }
+
+  .navLink {
+    font-size: 0.9rem;
+  }
+}
+
+/* Ensure text remains black in About page for mobile */
+.header.blackText .hamburger span {
+  background: black;
+}
