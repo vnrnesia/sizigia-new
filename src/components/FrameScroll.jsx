@@ -106,8 +106,8 @@ const FrameScroll = () => {
   useEffect(() => {
     const handleResize = () => {
       if (canvasRef.current) {
-        canvasRef.current.width = window.innerWidth;
-        canvasRef.current.height = window.innerHeight;
+        canvasRef.current.width = 1920;
+        canvasRef.current.height = 1080;
         drawFrame(currentFrame);
       }
     };
