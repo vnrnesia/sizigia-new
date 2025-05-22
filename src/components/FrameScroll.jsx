@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./FrameScroll.module.css";
 import { motion, AnimatePresence } from "framer-motion";
@@ -7,7 +7,6 @@ import PageLoader from "./PageLoader";
 const CHUNK_SIZE = 106;
 const PRELOAD_AHEAD = 106;
 const INITIAL_FRAMES_TO_LOAD = 106;
-const TEXT_TRANSITION_DURATION = 300;
 
 const FrameScroll = () => {
   const navigate = useNavigate();
@@ -20,145 +19,178 @@ const FrameScroll = () => {
   const [isTextTransitioning, setIsTextTransitioning] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadedFrames, setLoadedFrames] = useState(0);
-  const totalFrames = 106;
 
+  const totalFrames = 106;
   const canvasRef = useRef(null);
   const frameImagesRef = useRef({});
   const loadingChunksRef = useRef(new Set());
+  const lastDrawnFrameRef = useRef(null);
 
   const texts = [
-    "всем", "привет", "севодня", "мы", "посмотрим", "мы", "посмотрим", "мы",
-    "посмотрим", "всем", "привет", "севодня", "мы", "посмотрим", "мы",
+    "всем", "привет", "севодня", "мы", "посмотрим",
+    "мы", "посмотрим", "мы", "посмотрим", "всем",
+    "привет", "севодня", "мы", "посмотрим", "мы",
     "посмотрим", "мы", "посмотрим", "сизигиа"
   ];
 
-  const loadFrameChunk = useCallback(async (startFrame, endFrame) => {
-    const chunkKey = `${startFrame}-${endFrame}`;
-    if (loadingChunksRef.current.has(chunkKey)) return;
+  const loadFrameChunk = async (start, end) => {
+    const key = `${start}-${end}`;
+    if (loadingChunksRef.current.has(key)) return;
+    loadingChunksRef.current.add(key);
 
-    loadingChunksRef.current.add(chunkKey);
+    const promises = [];
 
-    const loadPromises = [];
-
-    for (let i = startFrame; i <= endFrame && i <= totalFrames; i++) {
+    for (let i = start; i <= end && i <= totalFrames; i++) {
       if (!frameImagesRef.current[i]) {
         const frameNum = String(i).padStart(3, "0");
         const img = new Image();
         img.src = `/frames/frame_${frameNum}.webp`;
 
-        const loadPromise = img.decode().then(() => {
+        const promise = img.decode().then(() => {
           frameImagesRef.current[i] = img;
           setLoadedFrames((prev) => {
-            const newCount = prev + 1;
-            if (newCount >= INITIAL_FRAMES_TO_LOAD) setIsLoading(false);
-            return newCount;
+            const count = prev + 1;
+            if (count >= INITIAL_FRAMES_TO_LOAD) setIsLoading(false);
+            return count;
           });
-        }).catch(() => {});
+        }).catch((e) => console.warn(`Failed to decode frame ${frameNum}`));
 
-        loadPromises.push(loadPromise);
+        promises.push(promise);
       }
     }
 
-    await Promise.all(loadPromises);
-    loadingChunksRef.current.delete(chunkKey);
-  }, []);
+    await Promise.all(promises);
+    loadingChunksRef.current.delete(key);
+  };
 
   const drawFrame = (frameNumber) => {
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    const img = frameImagesRef.current[frameNumber];
-    if (canvas && ctx && img?.complete) {
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    const img = frameImagesRef.current[frameNumber] || frameImagesRef.current[lastDrawnFrameRef.current];
+
+    if (img) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      lastDrawnFrameRef.current = frameNumber;
     }
   };
 
   useEffect(() => {
+    const initialEnd = Math.min(CHUNK_SIZE, totalFrames);
+    loadFrameChunk(1, initialEnd);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const preloadAll = async () => {
+      for (let i = 1; i <= totalFrames && !cancelled; i++) {
+        if (!frameImagesRef.current[i]) {
+          const frameNum = String(i).padStart(3, "0");
+          const img = new Image();
+          img.src = `/frames/frame_${frameNum}.webp`;
+
+          try {
+            await img.decode();
+            frameImagesRef.current[i] = img;
+          } catch {}
+        }
+        await new Promise((r) => setTimeout(r, 10));
+      }
+    };
+
+    preloadAll();
+    return () => { cancelled = true };
+  }, []);
+
+  useEffect(() => {
+    const KEEP = 100;
+    const keys = Object.keys(frameImagesRef.current).map(Number);
+    if (keys.length > KEEP) {
+      const sorted = keys.sort((a, b) => a - b);
+      const toRemove = sorted.slice(0, keys.length - KEEP);
+      for (let k of toRemove) delete frameImagesRef.current[k];
+    }
+  }, [currentFrame]);
+
+  useEffect(() => {
     const handleResize = () => {
       if (canvasRef.current) {
-        canvasRef.current.width = 1920;
-        canvasRef.current.height = 1080;
+        canvasRef.current.width = 1280; 
+        canvasRef.current.height = 720;
         drawFrame(currentFrame);
       }
     };
+
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [currentFrame]);
 
   useEffect(() => {
-    const handleScroll = () => {
-      const scrollPosition = window.scrollY;
-      const windowHeight = window.innerHeight;
-      const documentHeight = document.documentElement.scrollHeight;
-      const maxScroll = Math.max(documentHeight - windowHeight, 1);
-      const scrollPercentage = scrollPosition / maxScroll;
+    let ticking = false;
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const scrollY = window.scrollY;
+          const winH = window.innerHeight;
+          const docH = document.documentElement.scrollHeight;
+          const percent = scrollY / (docH - winH);
+          setScrollProgress(percent);
 
-      setScrollProgress(scrollPercentage);
+          const textIndex = Math.min(Math.floor(percent * texts.length * 1.5), texts.length - 1);
+          if (currentText !== texts[textIndex] && !isTextTransitioning) {
+            setIsTextTransitioning(true);
+            setFadeOutText(currentText);
+            setCurrentText(texts[textIndex]);
+            setTimeout(() => {
+              setFadeOutText("");
+              setIsTextTransitioning(false);
+            }, 300);
+          }
 
-      const textIndex = Math.min(
-        Math.floor(scrollPercentage * texts.length * 1.5),
-        texts.length - 1
-      );
+          const frameNum = Math.min(Math.max(1, Math.floor(percent * totalFrames) + 1), totalFrames);
+          setCurrentFrame(frameNum);
 
-      if (currentText !== texts[textIndex] && !isTextTransitioning) {
-        setIsTextTransitioning(true);
-        setFadeOutText(currentText);
-        setCurrentText(texts[textIndex]);
-        setTimeout(() => {
-          setFadeOutText("");
-          setIsTextTransitioning(false);
-        }, TEXT_TRANSITION_DURATION);
+          const preloadStart = Math.min(frameNum + 1, totalFrames);
+          const preloadEnd = Math.min(frameNum + PRELOAD_AHEAD, totalFrames);
+          loadFrameChunk(preloadStart, preloadEnd);
+
+          if (frameNum === totalFrames && !showVideo && !isTransitioning) {
+            setIsTransitioning(true);
+            setTimeout(() => {
+              setShowVideo(true);
+              setTimeout(() => setIsTransitioning(false), 500);
+            }, 500);
+          } else if (frameNum < totalFrames && showVideo && !isTransitioning) {
+            setIsTransitioning(true);
+            setTimeout(() => {
+              setShowVideo(false);
+              setTimeout(() => setIsTransitioning(false), 500);
+            }, 500);
+          }
+
+          ticking = false;
+        });
+
+        ticking = true;
       }
-
-      const frameNumber = Math.min(
-        Math.max(1, Math.floor(scrollPercentage * totalFrames) + 1),
-        totalFrames
-      );
-
-      setCurrentFrame(frameNumber);
-
-      const nextChunkStart = Math.min(frameNumber + 1, totalFrames);
-      const nextChunkEnd = Math.min(frameNumber + PRELOAD_AHEAD, totalFrames);
-      loadFrameChunk(nextChunkStart, nextChunkEnd);
     };
 
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [currentText, isTextTransitioning, loadFrameChunk]);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [currentText, showVideo, isTransitioning, isTextTransitioning]);
 
   useEffect(() => {
-    loadFrameChunk(1, Math.min(CHUNK_SIZE, totalFrames));
-  }, [loadFrameChunk]);
-
-  useEffect(() => {
-    if (frameImagesRef.current[currentFrame]) {
-      drawFrame(currentFrame);
-    }
-  }, [currentFrame, loadedFrames]);
-
-  useEffect(() => {
-    if (!isTransitioning) {
-      if (currentFrame === totalFrames && !showVideo) {
-        setIsTransitioning(true);
-        setTimeout(() => {
-          setShowVideo(true);
-          setIsTransitioning(false);
-        }, 500);
-      } else if (currentFrame < totalFrames && showVideo) {
-        setIsTransitioning(true);
-        setTimeout(() => {
-          setShowVideo(false);
-          setIsTransitioning(false);
-        }, 500);
-      }
-    }
-  }, [currentFrame, showVideo, isTransitioning]);
+    drawFrame(currentFrame);
+  }, [currentFrame]);
 
   const getTextPosition = () => {
     if (showVideo) return "translate(-50%, -150%)";
-    const slideUpAmount = -scrollProgress * 80;
-    return `translate(-50%, calc(-50% + ${slideUpAmount}vh))`;
+    const offset = -scrollProgress * 80;
+    return `translate(-50%, calc(-50% + ${offset}vh))`;
   };
 
   return (
@@ -166,10 +198,7 @@ const FrameScroll = () => {
       {isLoading && <PageLoader />}
       <div className={styles.container}>
         <div className={`${styles.frameContainer} ${isTransitioning ? styles.transitioning : ""}`}>
-          <canvas
-            ref={canvasRef}
-            className={`${styles.frame} ${showVideo || isTransitioning ? styles.fadeOut : ""}`}
-          />
+          <canvas ref={canvasRef} className={`${styles.frame} ${showVideo || isTransitioning ? styles.fadeOut : ""}`} />
           <video
             className={`${styles.video} ${showVideo ? styles.fadeIn : ""}`}
             autoPlay
@@ -202,39 +231,18 @@ const FrameScroll = () => {
           </AnimatePresence>
         </div>
 
-        <div
-          className={`${styles.scrollIndicator} ${!showVideo ? styles.show : ""}`}
-          onClick={() => navigate("/about")}
-          style={{ cursor: "pointer" }}
-        >
+        <div className={`${styles.scrollIndicator} ${!showVideo ? styles.show : ""}`} onClick={() => navigate("/about")} style={{ cursor: "pointer" }}>
           <span className={styles.scrollText}>узнать больше</span>
-          <svg
-            className={styles.scrollArrow}
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M12 5L12 19M12 19L5 12M12 19L19 12"
-              stroke="white"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+          <svg className={styles.scrollArrow} width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M12 5L12 19M12 19L5 12M12 19L19 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
 
-        <div
-          className={`${styles.videoButton} ${showVideo ? styles.show : ""}`}
-          onClick={() => navigate("/about")}
-          style={{ cursor: "pointer" }}
-        >
+        <div className={`${styles.videoButton} ${showVideo ? styles.show : ""}`} onClick={() => navigate("/about")} style={{ cursor: "pointer" }}>
           <span className={styles.buttonText}>узнать больше</span>
         </div>
 
-        <div className={styles.spacer}></div>
+        <div style={{ minHeight: "100vh", marginTop: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }} />
       </div>
     </>
   );
