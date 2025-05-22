@@ -13,23 +13,18 @@ const FrameScroll = () => {
   const [currentFrame, setCurrentFrame] = useState(1);
   const [showVideo, setShowVideo] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [scrollProgress, setScrollProgress] = useState(0);
-  const [currentText, setCurrentText] = useState("hello");
   const [isLoading, setIsLoading] = useState(true);
+  const [currentText, setCurrentText] = useState("hello");
   const [loadedFrames, setLoadedFrames] = useState(0);
 
   const totalFrames = 106;
   const canvasRef = useRef(null);
   const frameImagesRef = useRef({});
-  const loadingChunksRef = useRef(new Set());
   const lastDrawnFrameRef = useRef(null);
-
-  // Refs for optimized scroll handling
-  const currentTextRef = useRef(currentText);
-  const isTextTransitioningRef = useRef(false);
   const tickingRef = useRef(false);
-  const showVideoRef = useRef(showVideo);
-  const isTransitioningRef = useRef(isTransitioning);
+  const isTextTransitioningRef = useRef(false);
+  const showVideoRef = useRef(false);
+  const isTransitioningRef = useRef(false);
 
   const texts = [
     "hello",
@@ -44,11 +39,6 @@ const FrameScroll = () => {
     "animation",
   ];
 
-  // Keep refs updated with latest state values
-  useEffect(() => {
-    currentTextRef.current = currentText;
-  }, [currentText]);
-
   useEffect(() => {
     showVideoRef.current = showVideo;
   }, [showVideo]);
@@ -57,49 +47,40 @@ const FrameScroll = () => {
     isTransitioningRef.current = isTransitioning;
   }, [isTransitioning]);
 
-  // Load frames chunk
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (canvas) {
+      canvas.width = 1280;
+      canvas.height = 720;
+    }
+  }, []);
+
   const loadFrameChunk = async (start, end) => {
-    const key = `${start}-${end}`;
-    if (loadingChunksRef.current.has(key)) return;
-    loadingChunksRef.current.add(key);
-
-    const promises = [];
-
     for (let i = start; i <= end && i <= totalFrames; i++) {
       if (!frameImagesRef.current[i]) {
         const frameNum = String(i).padStart(3, "0");
         const img = new Image();
         img.src = `/frames/frame_${frameNum}.webp`;
-
-        const promise = img
-          .decode()
-          .then(() => {
-            frameImagesRef.current[i] = img;
-            setLoadedFrames((prev) => {
-              const count = prev + 1;
-              if (count >= INITIAL_FRAMES_TO_LOAD) setIsLoading(false);
-              return count;
-            });
-          })
-          .catch(() => {});
-        promises.push(promise);
+        try {
+          await img.decode();
+          frameImagesRef.current[i] = img;
+          setLoadedFrames((prev) => {
+            const next = prev + 1;
+            if (next >= INITIAL_FRAMES_TO_LOAD) setIsLoading(false);
+            return next;
+          });
+        } catch {}
       }
     }
-
-    await Promise.all(promises);
-    loadingChunksRef.current.delete(key);
   };
 
-  // Draw frame on canvas
   const drawFrame = (frameNumber) => {
     const canvas = canvasRef.current;
-    if (!canvas || !canvas.width || !canvas.height) return;
-
+    if (!canvas) return;
     const ctx = canvas.getContext("2d");
     const img =
       frameImagesRef.current[frameNumber] ||
       frameImagesRef.current[lastDrawnFrameRef.current];
-
     if (img) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
@@ -107,17 +88,13 @@ const FrameScroll = () => {
     }
   };
 
-  // Initial chunk load
   useEffect(() => {
-    const initialEnd = Math.min(CHUNK_SIZE, totalFrames);
-    loadFrameChunk(1, initialEnd);
+    loadFrameChunk(1, CHUNK_SIZE);
   }, []);
 
-  // Preload all frames in background
   useEffect(() => {
-    let cancelled = false;
     const preloadAll = async () => {
-      for (let i = 1; i <= totalFrames && !cancelled; i++) {
+      for (let i = 1; i <= totalFrames; i++) {
         if (!frameImagesRef.current[i]) {
           const frameNum = String(i).padStart(3, "0");
           const img = new Image();
@@ -130,56 +107,13 @@ const FrameScroll = () => {
         await new Promise((r) => setTimeout(r, 10));
       }
     };
-
     preloadAll();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
-  // Keep max 100 frames cached
   useEffect(() => {
-    const KEEP = 100;
-    const keys = Object.keys(frameImagesRef.current).map(Number);
-    if (keys.length > KEEP) {
-      const sorted = keys.sort((a, b) => a - b);
-      const toRemove = sorted.slice(0, keys.length - KEEP);
-      for (let k of toRemove) delete frameImagesRef.current[k];
-    }
+    drawFrame(currentFrame);
   }, [currentFrame]);
 
-  // Canvas sizing on mount
-  useLayoutEffect(() => {
-    if (canvasRef.current) {
-      canvasRef.current.width = 1280;
-      canvasRef.current.height = 720;
-      drawFrame(currentFrame);
-    }
-  }, []);
-
-  // Handle window resize
-  useLayoutEffect(() => {
-    const handleResize = () => {
-      if (canvasRef.current) {
-        canvasRef.current.width = 1280;
-        canvasRef.current.height = 720;
-        drawFrame(currentFrame);
-      }
-    };
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  // Draw frame after loading
-  useEffect(() => {
-    if (!isLoading) {
-      drawFrame(currentFrame);
-    }
-  }, [isLoading]);
-
-  // Optimized scroll handler
   useEffect(() => {
     const onScroll = () => {
       if (!tickingRef.current) {
@@ -189,37 +123,26 @@ const FrameScroll = () => {
           const docH = document.documentElement.scrollHeight;
           const percent = scrollY / (docH - winH);
 
-          setScrollProgress(percent);
+          const frameNum = Math.min(
+            Math.max(1, Math.floor(percent * totalFrames) + 1),
+            totalFrames
+          );
+          setCurrentFrame(frameNum);
+          drawFrame(frameNum);
 
           const textIndex = Math.min(
             Math.floor(percent * texts.length),
             texts.length - 1
           );
           const nextText = texts[textIndex];
-
-          // Update text only if changed and not animating
-          if (
-            nextText !== currentTextRef.current &&
-            !isTextTransitioningRef.current
-          ) {
+          if (nextText !== currentText && !isTextTransitioningRef.current) {
             isTextTransitioningRef.current = true;
             setCurrentText(nextText);
             setTimeout(() => {
               isTextTransitioningRef.current = false;
-            }, 500);
+            }, 100);
           }
 
-          const frameNum = Math.min(
-            Math.max(1, Math.floor(percent * totalFrames) + 1),
-            totalFrames
-          );
-          setCurrentFrame(frameNum);
-
-          const preloadStart = Math.min(frameNum + 1, totalFrames);
-          const preloadEnd = Math.min(frameNum + PRELOAD_AHEAD, totalFrames);
-          loadFrameChunk(preloadStart, preloadEnd);
-
-          // Video and transition logic with refs
           if (
             frameNum === totalFrames &&
             !showVideoRef.current &&
@@ -228,8 +151,8 @@ const FrameScroll = () => {
             setIsTransitioning(true);
             setTimeout(() => {
               setShowVideo(true);
-              setTimeout(() => setIsTransitioning(false), 500);
-            }, 500);
+              setTimeout(() => setIsTransitioning(false), 300);
+            }, 300);
           } else if (
             frameNum < totalFrames &&
             showVideoRef.current &&
@@ -238,31 +161,24 @@ const FrameScroll = () => {
             setIsTransitioning(true);
             setTimeout(() => {
               setShowVideo(false);
-              setTimeout(() => setIsTransitioning(false), 500);
-            }, 500);
+              setTimeout(() => setIsTransitioning(false), 300);
+            }, 300);
           }
 
           tickingRef.current = false;
         });
-
         tickingRef.current = true;
       }
     };
 
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [currentText]);
 
-  // Draw frame on currentFrame change
-  useEffect(() => {
-    drawFrame(currentFrame);
-  }, [currentFrame]);
-
-  // Calculate text vertical position for smooth upward motion
   const getTextPosition = () => {
-    if (showVideo) return "translate(-50%, -2000%)";
-    const offset = -scrollProgress * 80;
-    return `translate(-50%, calc(-50% + ${offset}vh))`;
+    return showVideo
+      ? "translate3d(-50%, -2000%, 0)"
+      : "translate3d(-50%, -50%, 0)";
   };
 
   return (
@@ -291,15 +207,16 @@ const FrameScroll = () => {
             <source src="/video.mp4" type="video/mp4" />
           </video>
           {showVideo && (
-            <div className={styles.centeredText}>
-              Умный дамах <br />
-            </div>
+            <div className={styles.centeredText}>Умный дамах</div>
           )}
         </div>
 
         <div
           className={styles.greeting}
-          style={{ transform: getTextPosition() }}
+          style={{
+            transform: getTextPosition(),
+            willChange: "transform",
+          }}
         >
           <AnimatePresence mode="wait">
             <motion.div
@@ -307,7 +224,7 @@ const FrameScroll = () => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.1, ease: "easeOut" }}
+              transition={{ duration: 0.08 }}
               className={styles.text}
             >
               {currentText}
