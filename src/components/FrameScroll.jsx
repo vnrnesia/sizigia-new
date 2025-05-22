@@ -4,9 +4,9 @@ import styles from "./FrameScroll.module.css";
 import { motion, AnimatePresence } from "framer-motion";
 import PageLoader from "./PageLoader";
 
-const CHUNK_SIZE = 106; 
-const PRELOAD_AHEAD = 106; 
-const INITIAL_FRAMES_TO_LOAD = 106;
+const CHUNK_SIZE = 150; 
+const PRELOAD_AHEAD = 150; 
+const INITIAL_FRAMES_TO_LOAD = 150;
 
 const FrameScroll = () => {
   const navigate = useNavigate();
@@ -19,7 +19,7 @@ const FrameScroll = () => {
   const [isTextTransitioning, setIsTextTransitioning] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadedFrames, setLoadedFrames] = useState(0);
-  const totalFrames = 106;
+  const totalFrames = 150;
 
   const canvasRef = useRef(null);
   const frameImagesRef = useRef({});
@@ -245,6 +245,7 @@ const FrameScroll = () => {
             </div>
           )}
         </div>
+        
         <div
           className={styles.greeting}
           style={{ transform: getTextPosition() }}
@@ -296,6 +297,14 @@ const FrameScroll = () => {
         >
           <span className={styles.buttonText}>узнать больше</span>
         </div>
+          <div style={{ 
+        minHeight: '100vh', 
+        marginTop: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center' 
+      }}>
+      </div>
       </div>
     </>
   );

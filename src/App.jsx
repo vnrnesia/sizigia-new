@@ -18,14 +18,7 @@ function App() {
         </Routes>
       </div>
 
-      <div style={{ 
-        minHeight: '100vh', 
-        marginTop: '100vh', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center' 
-      }}>
-      </div>
+    
     </Router>
   );
 }
