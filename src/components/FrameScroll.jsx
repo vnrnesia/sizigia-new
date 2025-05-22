@@ -207,10 +207,16 @@ const FrameScroll = () => {
     drawFrame(currentFrame);
   }, [currentFrame]);
 
+  // Optimize translate to use translate3d and avoid calc()
+  // Directly calculate pixel offset, avoid vh unit
   const getTextPosition = () => {
-    if (showVideo) return "translate(-50%, -2000%)";
-    const offset = -scrollProgress * 80;
-    return `translate(-50%, calc(-50% + ${offset}vh))`;
+    if (showVideo) return "translate3d(-50%, -2000%, 0)";
+    // scrollProgress is 0..1, let's move text max 80vh => convert vh to px approx
+    // Using window.innerHeight to convert vh to px for pixel-based translation
+    const maxOffsetPx = 80 * window.innerHeight / 100; 
+    const offsetPx = -scrollProgress * maxOffsetPx;
+    // Use translate3d for GPU acceleration and only translateY for vertical movement
+    return `translate3d(-50%, ${offsetPx}px, 0)`;
   };
 
   return (
@@ -243,11 +249,21 @@ const FrameScroll = () => {
           )}
         </div>
 
-        <div className={styles.greeting} style={{ transform: getTextPosition() }}>
+        <div
+          className={styles.greeting}
+          style={{
+            transform: getTextPosition(),
+            willChange: "transform",
+            backfaceVisibility: "hidden",
+          }}
+        >
           <AnimatePresence mode="wait">
             <motion.div
               key={currentText}
-             
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.1, ease: "easeOut" }}
               className={styles.text}
             >
               {currentText}
