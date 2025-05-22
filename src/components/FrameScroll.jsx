@@ -14,8 +14,7 @@ const FrameScroll = () => {
   const [showVideo, setShowVideo] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
-  const [currentText, setCurrentText] = useState("hell");
-  const [isTextTransitioning, setIsTextTransitioning] = useState(false);
+  const [currentText, setCurrentText] = useState("hello");
   const [isLoading, setIsLoading] = useState(true);
   const [loadedFrames, setLoadedFrames] = useState(0);
 
@@ -25,8 +24,40 @@ const FrameScroll = () => {
   const loadingChunksRef = useRef(new Set());
   const lastDrawnFrameRef = useRef(null);
 
-  const texts = ["hello", "this", "is", "a", "website", "that", "works", "with", "scroll", "animation"];
+  // Refs for optimized scroll handling
+  const currentTextRef = useRef(currentText);
+  const isTextTransitioningRef = useRef(false);
+  const tickingRef = useRef(false);
+  const showVideoRef = useRef(showVideo);
+  const isTransitioningRef = useRef(isTransitioning);
 
+  const texts = [
+    "hello",
+    "this",
+    "is",
+    "a",
+    "website",
+    "that",
+    "works",
+    "with",
+    "scroll",
+    "animation",
+  ];
+
+  // Keep refs updated with latest state values
+  useEffect(() => {
+    currentTextRef.current = currentText;
+  }, [currentText]);
+
+  useEffect(() => {
+    showVideoRef.current = showVideo;
+  }, [showVideo]);
+
+  useEffect(() => {
+    isTransitioningRef.current = isTransitioning;
+  }, [isTransitioning]);
+
+  // Load frames chunk
   const loadFrameChunk = async (start, end) => {
     const key = `${start}-${end}`;
     if (loadingChunksRef.current.has(key)) return;
@@ -59,6 +90,7 @@ const FrameScroll = () => {
     loadingChunksRef.current.delete(key);
   };
 
+  // Draw frame on canvas
   const drawFrame = (frameNumber) => {
     const canvas = canvasRef.current;
     if (!canvas || !canvas.width || !canvas.height) return;
@@ -75,11 +107,13 @@ const FrameScroll = () => {
     }
   };
 
+  // Initial chunk load
   useEffect(() => {
     const initialEnd = Math.min(CHUNK_SIZE, totalFrames);
     loadFrameChunk(1, initialEnd);
   }, []);
 
+  // Preload all frames in background
   useEffect(() => {
     let cancelled = false;
     const preloadAll = async () => {
@@ -103,6 +137,7 @@ const FrameScroll = () => {
     };
   }, []);
 
+  // Keep max 100 frames cached
   useEffect(() => {
     const KEEP = 100;
     const keys = Object.keys(frameImagesRef.current).map(Number);
@@ -113,6 +148,7 @@ const FrameScroll = () => {
     }
   }, [currentFrame]);
 
+  // Canvas sizing on mount
   useLayoutEffect(() => {
     if (canvasRef.current) {
       canvasRef.current.width = 1280;
@@ -121,6 +157,7 @@ const FrameScroll = () => {
     }
   }, []);
 
+  // Handle window resize
   useLayoutEffect(() => {
     const handleResize = () => {
       if (canvasRef.current) {
@@ -135,21 +172,23 @@ const FrameScroll = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Draw frame after loading
   useEffect(() => {
     if (!isLoading) {
       drawFrame(currentFrame);
     }
   }, [isLoading]);
 
+  // Optimized scroll handler
   useEffect(() => {
-    let ticking = false;
     const onScroll = () => {
-      if (!ticking) {
+      if (!tickingRef.current) {
         window.requestAnimationFrame(() => {
           const scrollY = window.scrollY;
           const winH = window.innerHeight;
           const docH = document.documentElement.scrollHeight;
           const percent = scrollY / (docH - winH);
+
           setScrollProgress(percent);
 
           const textIndex = Math.min(
@@ -158,10 +197,16 @@ const FrameScroll = () => {
           );
           const nextText = texts[textIndex];
 
-          if (nextText !== currentText && !isTextTransitioning) {
-            setIsTextTransitioning(true);
+          // Update text only if changed and not animating
+          if (
+            nextText !== currentTextRef.current &&
+            !isTextTransitioningRef.current
+          ) {
+            isTextTransitioningRef.current = true;
             setCurrentText(nextText);
-            setTimeout(() => setIsTextTransitioning(false), 500);
+            setTimeout(() => {
+              isTextTransitioningRef.current = false;
+            }, 500);
           }
 
           const frameNum = Math.min(
@@ -174,7 +219,12 @@ const FrameScroll = () => {
           const preloadEnd = Math.min(frameNum + PRELOAD_AHEAD, totalFrames);
           loadFrameChunk(preloadStart, preloadEnd);
 
-          if (frameNum === totalFrames && !showVideo && !isTransitioning) {
+          // Video and transition logic with refs
+          if (
+            frameNum === totalFrames &&
+            !showVideoRef.current &&
+            !isTransitioningRef.current
+          ) {
             setIsTransitioning(true);
             setTimeout(() => {
               setShowVideo(true);
@@ -182,8 +232,8 @@ const FrameScroll = () => {
             }, 500);
           } else if (
             frameNum < totalFrames &&
-            showVideo &&
-            !isTransitioning
+            showVideoRef.current &&
+            !isTransitioningRef.current
           ) {
             setIsTransitioning(true);
             setTimeout(() => {
@@ -192,31 +242,27 @@ const FrameScroll = () => {
             }, 500);
           }
 
-          ticking = false;
+          tickingRef.current = false;
         });
 
-        ticking = true;
+        tickingRef.current = true;
       }
     };
 
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
-  }, [currentText, showVideo, isTransitioning, isTextTransitioning]);
+  }, []);
 
+  // Draw frame on currentFrame change
   useEffect(() => {
     drawFrame(currentFrame);
   }, [currentFrame]);
 
-  // Optimize translate to use translate3d and avoid calc()
-  // Directly calculate pixel offset, avoid vh unit
+  // Calculate text vertical position for smooth upward motion
   const getTextPosition = () => {
-    if (showVideo) return "translate3d(-50%, -2000%, 0)";
-    // scrollProgress is 0..1, let's move text max 80vh => convert vh to px approx
-    // Using window.innerHeight to convert vh to px for pixel-based translation
-    const maxOffsetPx = 80 * window.innerHeight / 100; 
-    const offsetPx = -scrollProgress * maxOffsetPx;
-    // Use translate3d for GPU acceleration and only translateY for vertical movement
-    return `translate3d(-50%, ${offsetPx}px, 0)`;
+    if (showVideo) return "translate(-50%, -2000%)";
+    const offset = -scrollProgress * 80;
+    return `translate(-50%, calc(-50% + ${offset}vh))`;
   };
 
   return (
@@ -245,21 +291,23 @@ const FrameScroll = () => {
             <source src="/video.mp4" type="video/mp4" />
           </video>
           {showVideo && (
-            <div className={styles.centeredText}>Умный дамах <br /></div>
+            <div className={styles.centeredText}>
+              Умный дамах <br />
+            </div>
           )}
         </div>
 
         <div
           className={styles.greeting}
-          style={{
-            transform: getTextPosition(),
-            willChange: "transform",
-            backfaceVisibility: "hidden",
-          }}
+          style={{ transform: getTextPosition() }}
         >
           <AnimatePresence mode="wait">
             <motion.div
-            
+              key={currentText}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.1, ease: "easeOut" }}
               className={styles.text}
             >
               {currentText}
