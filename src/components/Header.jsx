@@ -9,15 +9,31 @@ const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (isAboutPage) {
-      setIsTransitioning(true);
-    } else {
-      setIsTransitioning(false);
-    }
+    setIsTransitioning(isAboutPage);
   }, [isAboutPage]);
 
+  // Dışarı tıklanınca menüyü kapatmak için useEffect eklendi
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        !e.target.closest(`.${styles.nav}`) &&
+        !e.target.closest(`.${styles.hamburger}`)
+      ) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    if (isMobileMenuOpen) {
+      document.addEventListener('click', handleClickOutside);
+    } else {
+      document.removeEventListener('click', handleClickOutside);
+    }
+
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [isMobileMenuOpen]);
+
   const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
+    setIsMobileMenuOpen((prev) => !prev);
   };
 
   return (
@@ -27,8 +43,8 @@ const Header = () => {
           Sizigia
         </Link>
       </div>
-      
-      <button 
+
+      <button
         className={`${styles.hamburger} ${isMobileMenuOpen ? styles.active : ''}`}
         onClick={toggleMobileMenu}
         aria-label="Toggle menu"
@@ -39,22 +55,22 @@ const Header = () => {
       </button>
 
       <nav className={`${styles.nav} ${isMobileMenuOpen ? styles.mobileMenuOpen : ''}`}>
-        <Link 
-          to="/about" 
+        <Link
+          to="/about"
           className={`${styles.navLink} ${isAboutPage ? styles.blackText : ''}`}
           onClick={() => setIsMobileMenuOpen(false)}
         >
           О нас
         </Link>
-        <Link 
-          to="/gallery" 
+        <Link
+          to="/gallery"
           className={`${styles.navLink} ${isAboutPage ? styles.blackText : ''}`}
           onClick={() => setIsMobileMenuOpen(false)}
         >
           Галерия
         </Link>
-        <Link 
-          to="/contact" 
+        <Link
+          to="/contact"
           className={`${styles.navLink} ${isAboutPage ? styles.blackText : ''}`}
           onClick={() => setIsMobileMenuOpen(false)}
         >
