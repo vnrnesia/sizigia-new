@@ -25,8 +25,9 @@ const FrameScroll = () => {
   const frameImagesRef = useRef({});
   const loadingChunksRef = useRef(new Set());
   const lastDrawnFrameRef = useRef(null);
+  const lastTextChangeRef = useRef(0);
 
-  const texts = ["всем", "привет", "севодня", "мы", "посмотрим", "сизигиа"];
+  const texts = ["hello", "this", "is", "a", "website", "that", "works", "with", "scroll", "animation", "welcome to sizigia"];
 
   const loadFrameChunk = async (start, end) => {
     const key = `${start}-${end}`;
@@ -154,10 +155,17 @@ const FrameScroll = () => {
           setScrollProgress(percent);
 
           const textIndex = Math.min(
-            Math.floor(percent * texts.length * 1.5),
+            Math.floor(percent * texts.length),
             texts.length - 1
           );
-          if (currentText !== texts[textIndex] && !isTextTransitioning) {
+
+          const now = Date.now();
+          if (
+            currentText !== texts[textIndex] &&
+            !isTextTransitioning &&
+            now - lastTextChangeRef.current > 800
+          ) {
+            lastTextChangeRef.current = now;
             setIsTextTransitioning(true);
             setFadeOutText(currentText);
             setCurrentText(texts[textIndex]);
@@ -253,10 +261,10 @@ const FrameScroll = () => {
           <AnimatePresence mode="wait">
             <motion.div
               key={currentText}
-              initial={{ opacity: 0, y: 20, filter: "blur(8px)" }}
-              animate={{ opacity: 1, y: 0, filter: "blur(0)" }}
-              exit={{ opacity: 0, y: -20, filter: "blur(8px)" }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
               className={styles.text}
             >
               {currentText}
@@ -290,9 +298,7 @@ const FrameScroll = () => {
         </div>
 
         <div
-          className={`${styles.videoButton} ${
-            showVideo ? styles.show : ""
-          }`}
+          className={`${styles.videoButton} ${showVideo ? styles.show : ""}`}
           onClick={() => navigate("/about")}
           style={{ cursor: "pointer" }}
         >

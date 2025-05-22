@@ -189,6 +189,11 @@
   opacity: 1;
 }
 
+.text {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
 .buttonText {
   font-family: 'Inter', sans-serif;
   font-weight: 400;
