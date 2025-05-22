@@ -27,7 +27,19 @@ const FrameScroll = () => {
   const lastDrawnFrameRef = useRef(null);
   const lastTextChangeRef = useRef(0);
 
-  const texts = ["hello", "this", "is", "a", "website", "that", "works", "with", "scroll", "animation", "welcome to sizigia"];
+  const texts = [
+    "hello",
+    "this",
+    "is",
+    "a",
+    "website",
+    "that",
+    "works",
+    "with",
+    "scroll",
+    "animation",
+    "sizigia",
+  ];
 
   const loadFrameChunk = async (start, end) => {
     const key = `${start}-${end}`;
@@ -163,7 +175,7 @@ const FrameScroll = () => {
           if (
             currentText !== texts[textIndex] &&
             !isTextTransitioning &&
-            now - lastTextChangeRef.current > 800
+            now - lastTextChangeRef.current > 1000 
           ) {
             lastTextChangeRef.current = now;
             setIsTextTransitioning(true);
@@ -191,11 +203,7 @@ const FrameScroll = () => {
               setShowVideo(true);
               setTimeout(() => setIsTransitioning(false), 500);
             }, 500);
-          } else if (
-            frameNum < totalFrames &&
-            showVideo &&
-            !isTransitioning
-          ) {
+          } else if (frameNum < totalFrames && showVideo && !isTransitioning) {
             setIsTransitioning(true);
             setTimeout(() => {
               setShowVideo(false);
@@ -219,9 +227,9 @@ const FrameScroll = () => {
   }, [currentFrame]);
 
   const getTextPosition = () => {
-    if (showVideo) return "translate(-50%, -150%)";
+    if (showVideo) return "translate3d(-50%, -150%, 0)";
     const offset = -scrollProgress * 80;
-    return `translate(-50%, calc(-50% + ${offset}vh))`;
+    return `translate3d(-50%, calc(-50% + ${offset}vh), 0)`;
   };
 
   return (
@@ -250,21 +258,20 @@ const FrameScroll = () => {
             <source src="/video.mp4" type="video/mp4" />
           </video>
           {showVideo && (
-            <div className={styles.centeredText}>Умный дамах <br /></div>
+            <div className={styles.centeredText}>
+              Умный дамах <br />
+            </div>
           )}
         </div>
 
-        <div
-          className={styles.greeting}
-          style={{ transform: getTextPosition() }}
-        >
+        <div className={styles.greeting} style={{ transform: getTextPosition() }}>
           <AnimatePresence mode="wait">
             <motion.div
               key={currentText}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
               className={styles.text}
             >
               {currentText}
@@ -273,9 +280,7 @@ const FrameScroll = () => {
         </div>
 
         <div
-          className={`${styles.scrollIndicator} ${
-            !showVideo ? styles.show : ""
-          }`}
+          className={`${styles.scrollIndicator} ${!showVideo ? styles.show : ""}`}
           onClick={() => navigate("/about")}
           style={{ cursor: "pointer" }}
         >
