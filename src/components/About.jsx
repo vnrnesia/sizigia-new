@@ -115,12 +115,12 @@ function About() {
             </div>
           </div>
 
-          {/* Bağış Kutusu */}
+         
           <div className="w-full max-w-xl mx-auto mt-28 border-t pt-16">
             <div className="flex justify-between mb-10">
               <div>
                 <h2 className="text-black font-semibold mb-4">Project by</h2>
-                <div className="grid grid-cols-2 gap-y-2 gap-x-6 text-[#2E2E2E] text-sm">
+                <div className="font-semibold  grid grid-cols-2 gap-y-2 gap-x-6 text-[#2E2E2E] text-sm">
                   {[
                     "Amurt",
                     "Sobra Architectes",
@@ -140,18 +140,18 @@ function About() {
 
               <div>
                 <h2 className="text-black font-semibold mb-4">Documents</h2>
-                <ul className="text-sm space-y-2">
-                  <li className="flex items-center text-[#B0B0B0] hover:text-[#3d7aff] transition-colors duration-300 ">
+                <ul className="font-semibold  text-sm space-y-2">
+                  <li className=" flex items-center text-[#B0B0B0] hover:text-[#3d7aff] transition-colors duration-300 ">
                     <i className=" "></i>{" "}
                     Project presentation
                   </li>
                   {["Tehnical information", "Budget breakdown", "Taxes"].map(
                     (doc, i) => (
                       <li
-                        className="flex items-center text-[#B0B0B0] hover:text-[#3d7aff] transition-colors duration-300"
+                        className="font-semibold  flex items-center text-[#B0B0B0] hover:text-[#3d7aff] transition-colors duration-300"
                         key={i}
                       >
-                        <i className="flex items-center text-[#3d7aff] font-medium"></i>{" "}
+                        <i className="flex items-center text-[#3d7aff] font-semibold  "></i>{" "}
                         {doc}
                       </li>
                     )
@@ -167,7 +167,7 @@ function About() {
                 <br />
                 Awakening
               </h1>
-              <p className="text-sm text-[#4F4F4F] mb-6">
+              <p className="font-semibold  text-sm text-[#4F4F4F] mb-6">
                 Contact us
               </p>
 
@@ -185,7 +185,7 @@ function About() {
                 </div>
               </div>
 
-              <div className="flex gap-4 mb-4">
+              <div className=" font-semibold  flex gap-4 mb-4">
                 {["Reliable", "Fast", "Durable", "Affordable"].map((amount) => (
                   <button
                     key={amount}
@@ -200,13 +200,13 @@ function About() {
                 ))}
               </div>
 
-              <p className="text-[#3d7aff] text-sm text-center max-w-xs mb-10">
+              <p className="font-semibold  text-[#3d7aff] text-sm text-center max-w-xs mb-10">
                 Donors contributing over €100 will have their names
                 <br />
                 engraved on a dedicated stone
               </p>
 
-              <p className="text-center text-black text-sm mb-10">
+              <p className="font-semibold  text-center text-black text-sm mb-10">
                 A heartfelt thank you from
                 <br />
                 the people of Bissiri!
