@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./FrameScroll.module.css";
 import { motion, AnimatePresence } from "framer-motion";
@@ -26,10 +26,7 @@ const FrameScroll = () => {
   const loadingChunksRef = useRef(new Set());
   const lastDrawnFrameRef = useRef(null);
 
-  const texts = [
-    "всем", "привет", "севодня", "мы", "посмотрим",
-     "сизигиа"
-  ];
+  const texts = ["всем", "привет", "севодня", "мы", "посмотрим", "сизигиа"];
 
   const loadFrameChunk = async (start, end) => {
     const key = `${start}-${end}`;
@@ -44,15 +41,17 @@ const FrameScroll = () => {
         const img = new Image();
         img.src = `/frames/frame_${frameNum}.webp`;
 
-        const promise = img.decode().then(() => {
-          frameImagesRef.current[i] = img;
-          setLoadedFrames((prev) => {
-            const count = prev + 1;
-            if (count >= INITIAL_FRAMES_TO_LOAD) setIsLoading(false);
-            return count;
-          });
-        }).catch((e) => console.warn(`Failed to decode frame ${frameNum}`));
-
+        const promise = img
+          .decode()
+          .then(() => {
+            frameImagesRef.current[i] = img;
+            setLoadedFrames((prev) => {
+              const count = prev + 1;
+              if (count >= INITIAL_FRAMES_TO_LOAD) setIsLoading(false);
+              return count;
+            });
+          })
+          .catch(() => {});
         promises.push(promise);
       }
     }
@@ -63,10 +62,12 @@ const FrameScroll = () => {
 
   const drawFrame = (frameNumber) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !canvas.width || !canvas.height) return;
 
     const ctx = canvas.getContext("2d");
-    const img = frameImagesRef.current[frameNumber] || frameImagesRef.current[lastDrawnFrameRef.current];
+    const img =
+      frameImagesRef.current[frameNumber] ||
+      frameImagesRef.current[lastDrawnFrameRef.current];
 
     if (img) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -82,14 +83,12 @@ const FrameScroll = () => {
 
   useEffect(() => {
     let cancelled = false;
-
     const preloadAll = async () => {
       for (let i = 1; i <= totalFrames && !cancelled; i++) {
         if (!frameImagesRef.current[i]) {
           const frameNum = String(i).padStart(3, "0");
           const img = new Image();
           img.src = `/frames/frame_${frameNum}.webp`;
-
           try {
             await img.decode();
             frameImagesRef.current[i] = img;
@@ -100,7 +99,9 @@ const FrameScroll = () => {
     };
 
     preloadAll();
-    return () => { cancelled = true };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -113,10 +114,18 @@ const FrameScroll = () => {
     }
   }, [currentFrame]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (canvasRef.current) {
+      canvasRef.current.width = 1280;
+      canvasRef.current.height = 720;
+      drawFrame(currentFrame);
+    }
+  }, []);
+
+  useLayoutEffect(() => {
     const handleResize = () => {
       if (canvasRef.current) {
-        canvasRef.current.width = 1280; 
+        canvasRef.current.width = 1280;
         canvasRef.current.height = 720;
         drawFrame(currentFrame);
       }
@@ -125,7 +134,13 @@ const FrameScroll = () => {
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [currentFrame]);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading) {
+      drawFrame(currentFrame);
+    }
+  }, [isLoading]);
 
   useEffect(() => {
     let ticking = false;
@@ -138,7 +153,10 @@ const FrameScroll = () => {
           const percent = scrollY / (docH - winH);
           setScrollProgress(percent);
 
-          const textIndex = Math.min(Math.floor(percent * texts.length * 1.5), texts.length - 1);
+          const textIndex = Math.min(
+            Math.floor(percent * texts.length * 1.5),
+            texts.length - 1
+          );
           if (currentText !== texts[textIndex] && !isTextTransitioning) {
             setIsTextTransitioning(true);
             setFadeOutText(currentText);
@@ -149,7 +167,10 @@ const FrameScroll = () => {
             }, 300);
           }
 
-          const frameNum = Math.min(Math.max(1, Math.floor(percent * totalFrames) + 1), totalFrames);
+          const frameNum = Math.min(
+            Math.max(1, Math.floor(percent * totalFrames) + 1),
+            totalFrames
+          );
           setCurrentFrame(frameNum);
 
           const preloadStart = Math.min(frameNum + 1, totalFrames);
@@ -162,7 +183,11 @@ const FrameScroll = () => {
               setShowVideo(true);
               setTimeout(() => setIsTransitioning(false), 500);
             }, 500);
-          } else if (frameNum < totalFrames && showVideo && !isTransitioning) {
+          } else if (
+            frameNum < totalFrames &&
+            showVideo &&
+            !isTransitioning
+          ) {
             setIsTransitioning(true);
             setTimeout(() => {
               setShowVideo(false);
@@ -195,8 +220,17 @@ const FrameScroll = () => {
     <>
       {isLoading && <PageLoader />}
       <div className={styles.container}>
-        <div className={`${styles.frameContainer} ${isTransitioning ? styles.transitioning : ""}`}>
-          <canvas ref={canvasRef} className={`${styles.frame} ${showVideo || isTransitioning ? styles.fadeOut : ""}`} />
+        <div
+          className={`${styles.frameContainer} ${
+            isTransitioning ? styles.transitioning : ""
+          }`}
+        >
+          <canvas
+            ref={canvasRef}
+            className={`${styles.frame} ${
+              showVideo || isTransitioning ? styles.fadeOut : ""
+            }`}
+          />
           <video
             className={`${styles.video} ${showVideo ? styles.fadeIn : ""}`}
             autoPlay
@@ -208,13 +242,14 @@ const FrameScroll = () => {
             <source src="/video.mp4" type="video/mp4" />
           </video>
           {showVideo && (
-            <div className={styles.centeredText}>
-              Умный дамах <br />
-            </div>
+            <div className={styles.centeredText}>Умный дамах <br /></div>
           )}
         </div>
 
-        <div className={styles.greeting} style={{ transform: getTextPosition() }}>
+        <div
+          className={styles.greeting}
+          style={{ transform: getTextPosition() }}
+        >
           <AnimatePresence mode="wait">
             <motion.div
               key={currentText}
@@ -229,18 +264,50 @@ const FrameScroll = () => {
           </AnimatePresence>
         </div>
 
-        <div className={`${styles.scrollIndicator} ${!showVideo ? styles.show : ""}`} onClick={() => navigate("/about")} style={{ cursor: "pointer" }}>
+        <div
+          className={`${styles.scrollIndicator} ${
+            !showVideo ? styles.show : ""
+          }`}
+          onClick={() => navigate("/about")}
+          style={{ cursor: "pointer" }}
+        >
           <span className={styles.scrollText}>узнать больше</span>
-          <svg className={styles.scrollArrow} width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path d="M12 5L12 19M12 19L5 12M12 19L19 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <svg
+            className={styles.scrollArrow}
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+          >
+            <path
+              d="M12 5L12 19M12 19L5 12M12 19L19 12"
+              stroke="white"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </div>
 
-        <div className={`${styles.videoButton} ${showVideo ? styles.show : ""}`} onClick={() => navigate("/about")} style={{ cursor: "pointer" }}>
+        <div
+          className={`${styles.videoButton} ${
+            showVideo ? styles.show : ""
+          }`}
+          onClick={() => navigate("/about")}
+          style={{ cursor: "pointer" }}
+        >
           <span className={styles.buttonText}>узнать больше</span>
         </div>
 
-        <div style={{ minHeight: "100vh", marginTop: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }} />
+        <div
+          style={{
+            minHeight: "100vh",
+            marginTop: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        />
       </div>
     </>
   );
